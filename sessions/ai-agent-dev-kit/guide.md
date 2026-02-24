@@ -13,10 +13,10 @@ Before diving in, it helps to understand **what's actually happening** when Prax
 **There's no magic.** Claude Code has a **context window** — everything it "knows" during a conversation. Praxis-kit works **within** that context window, not outside it.
 
 ```
-"Load memory"  = Agent uses the Read tool to read .kit/ files
+"Load memory"  = Agent uses the Read tool to read .praxis/ files
                   → file contents enter the context window
 
-"Save memory"   = Agent uses the Write tool to write .kit/ files
+"Save memory"   = Agent uses the Write tool to write .praxis/ files
                   → knowledge persists on disk for the next session
 
 "Decide what's   = Agent reads the short index.md (~20 lines),
@@ -54,31 +54,47 @@ Without kit:                          With kit:
 ## Quick Setup
 
 ```bash
-# 1. Copy praxis-kit skills into your project
-cp -r praxis-kit/.claude/skills/ your-project/.claude/skills/
+# 1. Install Praxis-kit skills into your project
+npx praxis-kit
 
 # 2. Open your project in Claude Code
 cd your-project
 claude
 
-# 3. Initialize the kit
+# 3. Initialize the project (creates .praxis/, updates CLAUDE.md)
 /kickoff
 
 # 4. Set up your profile
 /profile
 ```
 
+**Alternative installs** (all end with "run `/kickoff`"):
+```bash
+npx skills add github/praxis-kit    # Via Vercel Skills (37+ agents)
+# or manually:
+cp -r praxis-kit/skills/ your-project/.claude/skills/
+```
+
 After setup, your project looks like this:
 
 ```
 your-project/
-├── .claude/skills/          # Praxis-kit skills (6 commands)
-├── .kit/                    # Memory system (auto-managed)
+├── .claude/skills/          # Praxis-kit skills (6 commands) — committed to git
+│   ├── _memory-protocol.md  # Shared curation rules
+│   ├── kickoff/SKILL.md
+│   ├── profile/SKILL.md
+│   ├── explore/SKILL.md
+│   ├── plan-docs/SKILL.md
+│   ├── gen-test/SKILL.md
+│   └── implement/SKILL.md
+├── .praxis/                 # Memory system (auto-managed) — gitignored
+│   ├── _templates/          # Templates for memory files
 │   ├── index.md             # Memory map — agent reads this first
 │   ├── project-memory/      # Tech stack, requirements, decisions
 │   ├── task-memory/         # Per-task context, plans, decisions
 │   ├── agent-memory/        # Lessons learned, reusable patterns
 │   └── archive/             # Completed task memories
+├── .gitignore               # .praxis/ gitignored by /kickoff
 └── CLAUDE.md                # Your profile + workflow conventions
 ```
 
@@ -87,7 +103,7 @@ your-project/
 ## The Workflow
 
 ```
-/kickoff → /profile → /explore → /plan_docs → /gen_test → /implement
+/kickoff → /profile → /explore → /plan-docs → /gen-test → /implement
                          ↑                                      │
                          └──────── loop as needed ──────────────┘
 ```
@@ -100,16 +116,18 @@ Let's walk through building a feature from start to finish.
 
 ### Step 1: `/kickoff`
 
-Run once per project. Creates the `.kit/` memory structure and adds workflow conventions to CLAUDE.md.
+Run once per project. Creates the `.praxis/` memory structure and sets up your project for spec-driven development. Idempotent — safe to re-run if something's missing.
 
 ```
 You:  /kickoff
 ```
 
 **What happens:**
-- Creates `.kit/` directory with all subdirectories and templates
+- Creates `.praxis/` directory with all subdirectories and templates
 - Adds spec-driven workflow section to CLAUDE.md
+- Adds `.praxis/` to `.gitignore` (developer-local memory, not committed)
 - Initializes empty `index.md`, `architecture.md`, `requirements.md`
+- If `.praxis/` already exists, verifies and repairs rather than overwriting
 
 **Result:** Your project is ready for spec-driven development.
 
@@ -148,10 +166,10 @@ You:  /explore what tech stack should I use for a task manager REST API?
 1. Reads `index.md` → sees the project is new (no prior context)
 2. Researches: Node.js vs Python, Express vs Fastify, PostgreSQL vs SQLite, ORM options
 3. Makes a recommendation with trade-offs
-4. **Auto-saves to `.kit/`:**
+4. **Auto-saves to `.praxis/`:**
 
 ```
-.kit/
+.praxis/
 ├── index.md                                          # Updated with new entries
 ├── project-memory/
 │   ├── architecture.md                               # Updated: "Node.js + Fastify + PostgreSQL + Drizzle ORM"
@@ -174,16 +192,16 @@ You can run `/explore` multiple times for different topics:
 You:  /explore how should we handle authentication?
 ```
 
-The agent now **auto-loads** the previous tech stack decision (because it's relevant to auth) and researches auth options *with that context*. Saves a new decision to `.kit/project-memory/decisions/2026-02-23-auth-jwt.md`.
+The agent now **auto-loads** the previous tech stack decision (because it's relevant to auth) and researches auth options *with that context*. Saves a new decision to `.praxis/project-memory/decisions/2026-02-23-auth-jwt.md`.
 
 ---
 
-### Step 4: `/plan_docs`
+### Step 4: `/plan-docs`
 
 Generate implementation-ready plans from your exploration findings.
 
 ```
-You:  /plan_docs plan the task CRUD endpoints
+You:  /plan-docs plan the task CRUD endpoints
 ```
 
 **What the agent does automatically:**
@@ -195,7 +213,7 @@ You:  /plan_docs plan the task CRUD endpoints
 
 **Auto-saves to:**
 ```
-.kit/task-memory/task-crud/
+.praxis/task-memory/task-crud/
 ├── context.md          # (from earlier /explore, if any)
 └── plan.md             # The implementation plan
 ```
@@ -217,17 +235,17 @@ PostgreSQL with Drizzle ORM. JWT auth middleware on all routes.
 
 ---
 
-### Step 5: `/gen_test`
+### Step 5: `/gen-test`
 
 Generate test cases following TDD — tests first, code second.
 
 ```
-You:  /gen_test generate tests for the task CRUD endpoints
+You:  /gen-test generate tests for the task CRUD endpoints
 ```
 
 **What the agent does automatically:**
 1. Reads `task-memory/task-crud/plan.md` for implementation details
-2. Generates test files in your codebase (not in `.kit/`):
+2. Generates test files in your codebase (not in `.praxis/`):
 
 ```
 src/
@@ -272,10 +290,10 @@ You:  /implement implement the task CRUD endpoints
 
 ## How Memory Builds Over Time
 
-After the example above, your `.kit/` looks like:
+After the example above, your `.praxis/` looks like:
 
 ```
-.kit/
+.praxis/
 ├── index.md
 │   # Active Tasks: (none — task-crud is archived)
 │   # Project Knowledge: architecture.md, requirements.md
@@ -319,19 +337,20 @@ It loads only what's relevant and starts exploring **with full project context**
 
 | Command | Purpose | Memory Effect |
 |---------|---------|---------------|
-| `/kickoff` | Initialize project + `.kit/` structure | Creates `.kit/`, writes to CLAUDE.md |
+| `/kickoff` | Initialize project + `.praxis/` structure | Creates `.praxis/`, writes to CLAUDE.md |
 | `/profile` | Set your skill level, preferences, style | Writes `# About Me` to CLAUDE.md |
 | `/explore` | Research anything (tech, business, etc.) | Reads relevant memory → saves findings + decisions |
-| `/plan_docs` | Generate implementation-ready plans | Reads exploration context → saves plans |
-| `/gen_test` | Generate TDD test cases | Reads plans → writes tests to codebase |
+| `/plan-docs` | Generate implementation-ready plans | Reads exploration context → saves plans |
+| `/gen-test` | Generate TDD test cases | Reads plans → writes tests to codebase |
 | `/implement` | Implement code + run tests | Reads plans + lessons → saves lessons + archives task |
 
 ---
 
 ## Tips
 
-- **You can skip steps.** Don't need to explore? Jump straight to `/plan_docs`. The kit guides, it doesn't gate.
-- **You can loop back.** After `/plan_docs`, realized you need more research? Run `/explore` again. Memory accumulates.
-- **Memory is just markdown.** Open any `.kit/` file to see what the agent knows. Edit it directly if something's wrong.
-- **index.md is self-healing.** If it gets out of sync, the next skill will rebuild it from the `.kit/` directory structure.
+- **You can skip steps.** Don't need to explore? Jump straight to `/plan-docs`. Each skill checks prerequisites and offers to create what's missing — it guides, not gates.
+- **You can loop back.** After `/plan-docs`, realized you need more research? Run `/explore` again. Memory accumulates.
+- **Memory is just markdown.** Open any `.praxis/` file to see what the agent knows. Edit it directly if something's wrong.
+- **index.md is self-healing.** If it gets out of sync, the next skill will rebuild it from the `.praxis/` directory structure.
 - **Decisions include "why."** Every decision file explains the reasoning — so future-you (or future-agent) understands the context, not just the choice.
+- **`.praxis/` is gitignored by default.** It's your local agent workspace. To share project decisions with your team, uncomment `!.praxis/project-memory/` in `.gitignore`.
