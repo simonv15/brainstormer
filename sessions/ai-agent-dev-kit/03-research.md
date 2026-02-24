@@ -337,5 +337,271 @@ The `index.md` should be a **structured, scannable map** — not prose. Suggeste
 - **Claude Code hooks (`PreCompact`, `SessionEnd`) are natural triggers** for memory save operations — use them to ensure memories are persisted even if the user doesn't complete a full skill cycle. ([Claude Memory Hooks](https://yuanchang.org/en/posts/claude-code-auto-memory-and-hooks/))
 
 ---
+---
 
-*Next step: Run `/challenge` to stress-test the idea, or `/plan` to create the project plan.*
+# Deep Dive: Packaging & Distribution
+
+**Date:** 2026-02-23
+**Focus:** How to package Praxis-kit so users can easily install it and use it directly with Claude Code (and potentially other agents).
+
+---
+
+## 1. Distribution Channels Available Today
+
+### Option A: Vercel Skills Ecosystem (`npx skills add`)
+
+The dominant distribution channel for agent skills as of early 2026. ([Vercel Skills](https://vercel.com/docs/agent-resources/skills), [skills.sh directory](https://skills.sh/))
+
+**How it works:**
+- Users run `npx skills add your-github/praxis-kit`
+- CLI auto-detects installed coding agents (Claude Code, Cursor, Codex, etc.)
+- Copies/symlinks SKILL.md files into agent-specific directories
+- Skills appear on [skills.sh](https://skills.sh/) directory automatically via install telemetry
+
+**What you need to publish:**
+- A GitHub repo with skills in standard directories (`skills/`, `.agents/skills/`, or agent-specific paths)
+- Each skill has a `SKILL.md` with YAML frontmatter (`name`, `description`)
+- No registry submission — installs auto-register on skills.sh
+
+**Pros:**
+- One command install across 37+ agents (Claude Code, Cursor, Codex, OpenCode, Gemini CLI, etc.)
+- Built-in discovery via skills.sh leaderboard
+- No npm publish needed — works directly from GitHub
+- Vercel-backed ecosystem with strong momentum (26,000+ installs in first weeks)
+
+**Cons:**
+- Only installs SKILL.md files — can't run setup scripts (no `.kit/` initialization)
+- Your memory system requires a `/kickoff` step anyway, so this may be acceptable
+- Ecosystem controlled by Vercel
+
+**Verdict:** Best for **discovery and reach**. Users install skills, then run `/kickoff` to set up `.kit/`.
+
+---
+
+### Option B: Claude Code Plugin System (`/plugin install`)
+
+Claude Code's native plugin system, with Anthropic's official marketplace. ([Claude Code Plugin Docs](https://code.claude.com/docs/en/discover-plugins), [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official))
+
+**How it works:**
+- You create a marketplace repo with `.claude-plugin/marketplace.json`
+- Users add your marketplace: `/plugin marketplace add your-github/praxis-kit`
+- Then install: `/plugin install praxis-kit@your-marketplace-name`
+- Supports scopes: user (global), project, local
+
+**What you need to publish:**
+- GitHub repo with `.claude-plugin/marketplace.json` listing your plugins
+- Each plugin can include skills, agents, hooks, and MCP servers
+- Can bundle multiple components (skills + hooks + setup logic)
+
+**Pros:**
+- Native to Claude Code — no external tooling needed
+- Can bundle hooks (e.g., `PreCompact` for auto-memory saves)
+- Supports auto-updates — users get new versions automatically
+- Anthropic's official marketplace could feature your plugin
+- Richer than skills-only — can include agents, hooks, MCP servers
+
+**Cons:**
+- Claude Code only — no multi-agent reach
+- Still requires `/kickoff` for `.kit/` initialization
+- Marketplace ecosystem is newer, less established than skills.sh
+- More complex to maintain (marketplace.json + plugin structure)
+
+**Verdict:** Best for **Claude Code depth**. Lets you bundle skills + hooks + setup. Pair with Option A for multi-agent reach.
+
+---
+
+### Option C: npm Package with Setup Script (`npx praxis-kit`)
+
+Pattern used by cc-sdd and claude-code-spec-workflow. ([cc-sdd](https://github.com/gotalab/cc-sdd), [claude-code-spec-workflow](https://www.npmjs.com/package/@pimzino/claude-code-spec-workflow))
+
+**How it works:**
+- You publish an npm package with a CLI setup script
+- Users run `npx praxis-kit@latest` (or `npx praxis-kit init`)
+- Script copies skills into `.claude/skills/`, optionally initializes `.kit/`, writes to CLAUDE.md
+
+**What you need to publish:**
+- npm package with `bin` entry pointing to a setup script
+- Script handles file copying, directory creation, CLAUDE.md updates
+- Can include interactive prompts (language, agent selection, etc.)
+
+**Example (cc-sdd pattern):**
+```bash
+# One-command install with options
+npx praxis-kit@latest
+npx praxis-kit@latest --agent claude-code --lang en
+```
+
+**Pros:**
+- Familiar to all JS/TS developers
+- Can run setup logic (create `.kit/`, write CLAUDE.md conventions, etc.)
+- Version management via npm (`@latest`, `@1.0.0`)
+- Can support multiple agents via flags (like cc-sdd supports 7 agents)
+- Could combine `/kickoff` + install into one step
+
+**Cons:**
+- Requires Node.js/npm on user's system
+- npm publish process (account, versioning, etc.)
+- Not discoverable on skills.sh unless also published there
+- Setup script is a one-time run — no built-in update mechanism
+
+**Verdict:** Best for **power users and complete setup**. One command does everything: install skills + initialize `.kit/` + write CLAUDE.md.
+
+---
+
+### Option D: `add-skill` CLI (`npx add-skill`)
+
+A third-party tool specifically for installing agent skills from repos. ([add-skill.org](https://add-skill.org/))
+
+**How it works:**
+- Users run `npx add-skill your-github/praxis-kit`
+- Tool auto-detects installed agents (Claude Code, Codex, Cursor, OpenCode)
+- Copies skills into correct agent-specific directories
+- Supports `--skill` flags for selective install, `-g` for global
+
+**Pros:**
+- Simple and focused — just installs SKILL.md files
+- Multi-agent (4 agents: Claude Code, Codex, Cursor, OpenCode)
+- Supports both project-local and global installation
+- Non-interactive mode for CI/CD
+
+**Cons:**
+- Smaller ecosystem than Vercel's skills
+- Skills-only — can't run setup scripts
+- Less discovery than skills.sh
+
+**Verdict:** Alternative to Option A with similar trade-offs. Less reach but simpler.
+
+---
+
+### Option E: Manual Copy (Current Plan Default)
+
+The simplest approach — documented in the guide already.
+
+```bash
+git clone https://github.com/your-github/praxis-kit.git
+cp -r praxis-kit/.claude/skills/ your-project/.claude/skills/
+```
+
+**Pros:**
+- Zero dependencies, works everywhere
+- User sees exactly what's being installed
+- Good for initial development and dogfooding
+
+**Cons:**
+- No versioning or updates
+- Multi-step process
+- No discovery
+
+**Verdict:** Keep as **fallback** and development workflow. Not a distribution strategy.
+
+---
+
+## 2. Recommended Distribution Strategy
+
+### Multi-Channel Approach (recommended)
+
+Don't pick one — use multiple channels that serve different purposes:
+
+| Channel | Purpose | Priority | When to build |
+|---------|---------|----------|---------------|
+| **`npx praxis-kit`** (npm) | Complete one-command setup (skills + `.kit/` + CLAUDE.md) | **Primary** | Milestone 1-2 |
+| **Vercel Skills** (`npx skills add`) | Discovery + multi-agent reach | **Secondary** | Milestone 3 |
+| **Claude Code Plugin** (`/plugin install`) | Deep Claude Code integration (skills + hooks) | **Secondary** | Milestone 4 |
+| **Manual copy** | Development, docs, fallback | **Fallback** | Already done |
+
+### Why This Order
+
+1. **`npx praxis-kit` first** — Because Praxis-kit isn't just skills. It needs `.kit/` directory creation and CLAUDE.md setup. Only an npm setup script can do that in one command. This replaces the current "git clone + copy + run /kickoff" with just `npx praxis-kit`.
+
+2. **Vercel Skills second** — Once the skills are stable, publish to skills.sh for discovery. Users who find you there can install skills instantly, then run `/kickoff` for the memory system. This gives you visibility across 37+ agents.
+
+3. **Claude Code Plugin third** — When you're ready to add hooks (`PreCompact` for auto-memory saves, etc.), package as a Claude Code plugin. This is the "premium" distribution for Claude Code power users.
+
+### What `npx praxis-kit` Should Do
+
+```
+$ npx praxis-kit@latest
+
+  Praxis-kit v1.0.0
+
+  ✓ Detected Claude Code
+  ✓ Copied 6 skills to .claude/skills/
+  ✓ Created .kit/ directory structure
+  ✓ Added workflow conventions to CLAUDE.md
+
+  Ready! Open Claude Code and run /profile to get started.
+```
+
+The npm package would:
+1. Detect which agents are installed (start with Claude Code)
+2. Copy SKILL.md files to `.claude/skills/`
+3. Copy `_memory-protocol.md` to `.claude/skills/`
+4. Create `.kit/` directory with templates (index.md, project-memory/, etc.)
+5. Append spec-driven workflow conventions to CLAUDE.md (if not already present)
+6. Print a getting-started message
+
+This effectively **merges the install step with `/kickoff`** — one command to go from zero to ready.
+
+---
+
+## 3. Repo Structure for Multi-Channel Distribution
+
+```
+praxis-kit/
+├── package.json                    # npm package config
+├── bin/
+│   └── cli.js                      # npx praxis-kit setup script
+├── skills/                         # Vercel skills format (for npx skills add)
+│   ├── kickoff/SKILL.md
+│   ├── profile/SKILL.md
+│   ├── explore/SKILL.md
+│   ├── plan-docs/SKILL.md
+│   ├── gen-test/SKILL.md
+│   └── implement/SKILL.md
+├── .claude/skills/                 # Claude Code native format (for manual copy)
+│   ├── _memory-protocol.md
+│   ├── kickoff/SKILL.md
+│   ├── profile/SKILL.md
+│   ├── explore/SKILL.md
+│   ├── plan-docs/SKILL.md
+│   ├── gen-test/SKILL.md
+│   └── implement/SKILL.md
+├── .claude-plugin/                 # Claude Code plugin format
+│   └── marketplace.json
+├── templates/                      # .kit/ templates (copied during setup)
+│   ├── index.md
+│   ├── architecture.md
+│   └── requirements.md
+└── README.md
+```
+
+The same SKILL.md files serve all three channels — just referenced from different locations.
+
+---
+
+## 4. Competitive Packaging Comparison
+
+| Tool | Install Command | What it installs | Setup needed after? |
+|------|----------------|------------------|---------------------|
+| **cc-sdd** | `npx cc-sdd@latest` | Skills + docs + templates | No — ready to use |
+| **AI DevKit** | `npx ai-devkit` | CLI + skills + memory CLI | Some config |
+| **GitHub Spec Kit** | `pip install github-spec-kit` / `uvx github-spec-kit` | CLI tool | Run `spec init` |
+| **claude-code-spec-workflow** | `npm i -g @pimzino/claude-code-spec-workflow` | Global CLI + skills | Run setup command |
+| **Praxis-kit (proposed)** | `npx praxis-kit` | Skills + `.kit/` + CLAUDE.md | Just run `/profile` |
+
+Praxis-kit's advantage: **fewest post-install steps**. One command gets you skills + memory system + workflow conventions. Only `/profile` (optional, one-time) remains.
+
+---
+
+## Research Summary (Round 3: Packaging & Distribution)
+
+- **Multi-channel distribution is the smart play.** No single channel covers everything Praxis-kit needs. npm for complete setup, Vercel Skills for discovery, Claude Code Plugin for deep integration.
+- **`npx praxis-kit` should be the primary channel** because Praxis-kit isn't just skills — it needs `.kit/` creation and CLAUDE.md setup that only a setup script can automate.
+- **Vercel's skills.sh is the discovery layer.** With 37+ agents and 26,000+ installs in its first weeks, it's the npm-of-skills. Publishing there gives Praxis-kit visibility across the entire agent ecosystem.
+- **Claude Code's plugin system is the depth layer.** It supports skills + hooks + MCP servers in one package. When Praxis-kit adds hooks for auto-memory persistence, this becomes the premium distribution channel.
+- **The repo structure can serve all channels simultaneously.** Same SKILL.md files referenced from `skills/` (Vercel), `.claude/skills/` (manual), and `.claude-plugin/` (plugin system).
+- **cc-sdd validates the `npx` pattern.** They use `npx cc-sdd@latest` with language and agent flags, supporting 7 agents. Praxis-kit can follow the same pattern.
+
+---
+
+*Next step: Run `/challenge` to stress-test the idea, or `/plan` to update the project plan with distribution strategy.*

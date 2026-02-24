@@ -52,9 +52,17 @@
 
 - [ ] **Hook-based memory persistence** — Use `PreCompact`/`SessionEnd` hooks for automatic memory saves
 - [ ] **Multi-agent support** — Adapt `.kit/` and skills for Codex, Cursor, Gemini CLI
-- [ ] **npm distribution** — `npx praxis-kit init` for easy installation
 - [ ] **Memory metrics** — Track token usage per skill execution in `.kit/metrics/`
 - [ ] **Team memory** — Shared `.kit/` across team members with merge-friendly markdown
+
+### Distribution Strategy (Multi-Channel)
+
+| Channel | Command | Purpose | When to Build |
+|---------|---------|---------|---------------|
+| **npm setup script** (primary) | `npx praxis-kit` | Complete one-command setup: skills + `.kit/` + CLAUDE.md | Milestone 5 |
+| **Vercel Skills** (discovery) | `npx skills add github/praxis-kit` | Discovery on [skills.sh](https://skills.sh/) across 37+ agents | Milestone 5 |
+| **Claude Code Plugin** (depth) | `/plugin install praxis-kit@marketplace` | Deep integration with hooks + auto-updates | Future (when hooks are added) |
+| **Manual copy** (fallback) | `git clone` + `cp` | Development, docs, fallback | Already supported |
 
 ---
 
@@ -66,9 +74,11 @@
 - `/memory` command (users can read `.kit/` files directly for v1)
 - Hook-based memory persistence (explicit save at skill end instead)
 - YAML frontmatter on memory files (use simpler in-body markers like `**Status:** active`)
-- npm distribution (copy-paste installation for v1)
+- Claude Code Plugin distribution (deferred until hooks are added)
 - Multi-agent support
 - Memory metrics/analytics
+
+**MVP installation:** `npx praxis-kit` — one command that installs skills, creates `.kit/`, and writes CLAUDE.md conventions. Manual copy remains as fallback.
 
 ---
 
@@ -83,8 +93,42 @@
 | **User profile** | `# About Me` section in CLAUDE.md | Leverages Claude Code's native loading (CLAUDE.md is read every session). No separate profile system. |
 | **Memory curation** | ADD/UPDATE/DELETE/NOOP framework (adapted from Mem0) | Research-proven: 26% accuracy boost, 90% token savings. Applied via LLM instructions in markdown, not programmatic vector DB. |
 | **Memory templates** | Strict markdown templates with required sections per file type | Mitigates "curation quality varies wildly" risk by constraining free-form writing. Agent fills sections rather than inventing structure. |
+| **Distribution** | npm package with CLI setup script (`npx praxis-kit`) + Vercel Skills (`npx skills add`) | npm handles complete setup (skills + `.kit/` + CLAUDE.md). Vercel Skills handles discovery across 37+ agents. Same SKILL.md files serve both channels. |
 
-### Kit File Structure (what gets installed)
+### Repo Structure (multi-channel distribution)
+
+```
+praxis-kit/                           # GitHub repo
+├── package.json                      # npm package config (bin → cli.js)
+├── bin/
+│   └── cli.js                        # npx praxis-kit setup script
+├── skills/                           # Vercel Skills format (for npx skills add)
+│   ├── kickoff/SKILL.md
+│   ├── profile/SKILL.md
+│   ├── explore/SKILL.md
+│   ├── plan-docs/SKILL.md
+│   ├── gen-test/SKILL.md
+│   └── implement/SKILL.md
+├── .claude/skills/                   # Claude Code native format (for manual copy)
+│   ├── _memory-protocol.md
+│   ├── kickoff/SKILL.md              # Symlinks or copies of skills/ versions
+│   ├── profile/SKILL.md
+│   ├── explore/SKILL.md
+│   ├── plan_docs/SKILL.md
+│   ├── gen_test/SKILL.md
+│   └── implement/SKILL.md
+├── templates/                        # .kit/ templates (copied during setup)
+│   ├── index.md
+│   ├── decision.md
+│   ├── context.md
+│   ├── plan.md
+│   ├── lessons.md
+│   └── status.md
+├── README.md
+└── LICENSE
+```
+
+### Kit File Structure (what gets installed into the user's project)
 
 ```
 project-root/
@@ -335,13 +379,26 @@ Tasks:
 
 ---
 
-### Milestone 5: Integration Testing + Release
+### Milestone 5: Packaging, Integration Testing + Release
 
-**Deliverable:** A battle-tested, documented kit ready for public use.
+**Deliverable:** A battle-tested, packaged kit with `npx praxis-kit` one-command installation, published to npm and skills.sh.
 
 **Depends on:** Milestone 4
 
 Tasks:
+- [ ] **Build the npm CLI setup script** (`bin/cli.js`) — The `npx praxis-kit` entry point that:
+  - Detects which agents are installed (start with Claude Code)
+  - Copies SKILL.md files to `.claude/skills/`
+  - Copies `_memory-protocol.md` to `.claude/skills/`
+  - Creates `.kit/` directory structure with templates
+  - Appends SDD workflow conventions to CLAUDE.md (if not already present)
+  - Prints getting-started message directing user to `/profile`
+  - Supports flags: `--skip-kit` (skills only, no `.kit/`), `--skip-claude-md` (don't touch CLAUDE.md)
+- [ ] **Set up package.json** — npm package config with:
+  - `name: "praxis-kit"`, `bin: { "praxis-kit": "./bin/cli.js" }`
+  - Zero runtime dependencies (Node.js `fs` + `path` only)
+  - `files` array to include only `bin/`, `skills/`, `templates/`
+- [ ] **Structure repo for Vercel Skills** — Ensure `skills/` directory follows the Vercel Skills format so `npx skills add github/praxis-kit` works out of the box
 - [ ] **Dogfood on 3 project types**:
   - Web application (e.g., Next.js + database)
   - CLI tool (e.g., Node.js/Python command-line utility)
@@ -352,9 +409,11 @@ Tasks:
   - Test memory correction — manually edit `.kit/` files, verify skills adapt
   - Test index.md rebuild after corruption
 - [ ] **Measure CLAUDE.md budget** — Document exactly how many lines `/profile` + `/kickoff` consume
-- [ ] **Write README.md** — Installation guide, quick start, skill reference, memory architecture explanation
+- [ ] **Write README.md** — Installation guide (featuring `npx praxis-kit`), quick start, skill reference, memory architecture explanation
 - [ ] **Write CLAUDE.md for Praxis-kit repo itself** — Use the kit to build the kit's own documentation
+- [ ] **Publish to npm** — `npm publish` the praxis-kit package
 - [ ] **Publish to GitHub** — Public `praxis-kit` repo with examples
+- [ ] **Verify Vercel Skills discovery** — Confirm the kit appears on [skills.sh](https://skills.sh/) after installs
 - [ ] **Submit to awesome-claude-code and awesome-claude-skills** — Get listed for discoverability
 
 ---
@@ -370,15 +429,19 @@ Tasks:
 | **Memory bloat over time** | Medium | Completed tasks auto-archive. index.md capped to recent entries. v1.0 adds size-check guardrails. |
 | **AI DevKit adds curated memory** | High | Ship the memory protocol as a standalone, well-documented reference. Go deep on curation quality with exemplars. Build community early. |
 | **Prompt brittleness across projects** | Medium | Dogfood across 3 project types before release. Iterate on prompts based on failures. |
+| **npm package name squatting** | Low | Register `praxis-kit` on npm early (even as placeholder `0.0.1`). Check for name conflicts before committing. |
+| **Vercel Skills ecosystem changes** | Low | Keep skills format simple (just SKILL.md with frontmatter). Also support manual copy as fallback. Don't depend on any single distribution channel. |
 
 ---
 
 ## Open Questions
 
 - [x] **What should the kit be called?** → **Praxis-kit** (*praxis* = practical application of theory → specs become code)
-- [ ] **Global vs. project-local skill installation?** Should skills live in `~/.claude/skills/` (available everywhere) or per-project `.claude/skills/` (version-controlled with project)? Probably project-local for v1, with a guide for global installation.
+- [x] **Global vs. project-local skill installation?** → **Project-local by default** (`npx praxis-kit` installs to `.claude/skills/` in the current project). This keeps skills version-controlled with the project. Users who want global can manually copy to `~/.claude/skills/`.
+- [x] **How to distribute the kit?** → **Multi-channel**: `npx praxis-kit` (primary, complete setup), Vercel Skills (discovery), Claude Code Plugin (future, when hooks are added). See Distribution Strategy section.
 - [ ] **How to handle `/explore` for non-task-specific research?** Not all exploration maps to a specific task (e.g., "what database should I use for this project?"). Should this go to `project-memory/` directly instead of `task-memory/`?
 - [ ] **Should `/kickoff` run `/profile` automatically if no `# About Me` exists?** Could reduce onboarding to a single command. Or keep them separate for clarity.
+- [ ] **Should `npx praxis-kit` replace `/kickoff`?** The npm setup script could handle everything `/kickoff` does (create `.kit/`, write CLAUDE.md). `/kickoff` would then become a "re-initialize" command for existing projects. Or keep both: `npx praxis-kit` for first install, `/kickoff` for re-init or when installed via Vercel Skills (which can't run setup scripts).
 - [ ] **License choice?** MIT (maximum adoption) vs. Apache 2.0 (patent protection) vs. something else.
 
 ---
@@ -387,7 +450,12 @@ Tasks:
 
 Start here — these are the concrete actions to begin building immediately:
 
-1. **Create the repo.** Initialize `praxis-kit` on GitHub. Set up the `.claude/skills/` directory structure with empty SKILL.md files for all 6 commands.
+1. **Create the repo with multi-channel structure.** Initialize `praxis-kit` on GitHub with:
+   - `skills/` directory (Vercel Skills format) with SKILL.md files for all 6 commands
+   - `.claude/skills/` directory (Claude Code native format, copies of skills/)
+   - `templates/` directory for `.kit/` memory file templates
+   - `bin/cli.js` placeholder for the `npx praxis-kit` setup script
+   - `package.json` with `name: "praxis-kit"` and `bin` entry
 
 2. **Write `_memory-protocol.md` first.** This is the foundation. Include:
    - ADD/UPDATE/DELETE/NOOP framework with exemplars
@@ -396,11 +464,13 @@ Start here — these are the concrete actions to begin building immediately:
    - SAVE vs. PRUNE exemplars for curated knowledge
    - Test it manually by giving Claude Code the protocol and a mock `.kit/` directory
 
-3. **Write memory file templates.** Create `_templates/decision.md`, `context.md`, `plan.md`, `lessons.md`, `status.md`. Each should have required sections that constrain the agent's writing.
+3. **Write memory file templates.** Create `templates/decision.md`, `context.md`, `plan.md`, `lessons.md`, `status.md`. Each should have required sections that constrain the agent's writing.
 
 4. **Build `/kickoff` and `/profile`.** These are the simplest skills and create the foundation for everything else. Test on a real project.
 
 5. **Build `/explore` and test the full memory cycle.** This is the first real test of whether the memory protocol works. Run it 5+ times, evaluate curation quality, iterate.
+
+6. **Build `npx praxis-kit` CLI.** Once skills are stable, write `bin/cli.js` to automate the full install. Test it on a fresh project — `npx praxis-kit` should go from zero to ready in one command. Publish to npm.
 
 ---
 
