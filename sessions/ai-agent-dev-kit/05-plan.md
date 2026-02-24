@@ -13,7 +13,7 @@
 
 **Name origin:** *Praxis* means "the practical application of theory" — turning specs into working code. That's exactly what this kit does.
 
-**Unique differentiator:** Human-readable, git-trackable, agent-portable markdown memory with structured curation (ADD/UPDATE/DELETE/NOOP) — not summaries, not compression, but curated knowledge.
+**Unique differentiator:** Human-readable, agent-portable markdown memory with structured curation (ADD/UPDATE/DELETE/NOOP) — not summaries, not compression, but curated knowledge. Optionally git-trackable for team knowledge sharing.
 
 ---
 
@@ -31,15 +31,16 @@
 
 ### Must-Have (MVP — Milestone 1-3)
 
-- [ ] **Memory Protocol** (`_memory-protocol.md`) — Shared instructions for ADD/UPDATE/DELETE/NOOP curation across all skills, with concrete exemplars
-- [ ] **`.kit/` directory structure** — `index.md`, `project-memory/`, `task-memory/`, `agent-memory/`, `archive/`
-- [ ] **Memory templates** — Strict templates for each memory file type (decisions, context, plan, lessons)
-- [ ] **`/kickoff`** — Initialize project: create CLAUDE.md with SDD workflow conventions + `.kit/` directory structure + memory protocol
+- [ ] **Memory Protocol** (`_memory-protocol.md`) — Shared instructions for ADD/UPDATE/DELETE/NOOP curation across all skills, with concrete exemplars. Lives in `.claude/skills/` alongside SKILL.md files (it's an instruction file, not memory data).
+- [ ] **`.kit/` directory structure** — `index.md`, `project-memory/`, `task-memory/`, `agent-memory/`, `archive/`, `_templates/`
+- [ ] **Memory templates** — Strict templates for each memory file type (decisions, context, plan, lessons). Live in `.kit/_templates/`.
+- [ ] **`/kickoff`** — Initialize project: create `.kit/` directory structure with templates, append SDD workflow conventions to CLAUDE.md. Idempotent — safe to re-run (verifies/repairs, doesn't overwrite). This is the single entry point for project setup regardless of install method.
 - [ ] **`/profile`** — Write `# About Me` to CLAUDE.md (skill level, preferences, behaviors). Re-runnable.
 - [ ] **`/explore`** — Research and clarify anything (technical, business, framework decisions). Auto-saves findings and decisions to `.kit/`
-- [ ] **`/plan_docs`** — Generate general plan + detailed implementation plans. Concise, source of truth. Saves to `.kit/task-memory/`
-- [ ] **`/gen_test`** — Generate TDD test cases from plan docs
+- [ ] **`/plan-docs`** — Generate general plan + detailed implementation plans. Concise, source of truth. Saves to `.kit/task-memory/`
+- [ ] **`/gen-test`** — Generate TDD test cases from plan docs
 - [ ] **`/implement`** — Implement code + tests, auto-create todo list, execute in order, save lessons learned
+- [ ] **Graceful degradation** — Every skill detects missing prerequisites (no `.kit/`? → guide to `/kickoff`. No plan? → offer to create one). Skills work in any order, not just the linear flow.
 
 ### Should-Have (v1.0 polish)
 
@@ -57,18 +58,21 @@
 
 ### Distribution Strategy (Multi-Channel)
 
-| Channel | Command | Purpose | When to Build |
-|---------|---------|---------|---------------|
-| **npm setup script** (primary) | `npx praxis-kit` | Complete one-command setup: skills + `.kit/` + CLAUDE.md | Milestone 5 |
-| **Vercel Skills** (discovery) | `npx skills add github/praxis-kit` | Discovery on [skills.sh](https://skills.sh/) across 37+ agents | Milestone 5 |
-| **Claude Code Plugin** (depth) | `/plugin install praxis-kit@marketplace` | Deep integration with hooks + auto-updates | Future (when hooks are added) |
-| **Manual copy** (fallback) | `git clone` + `cp` | Development, docs, fallback | Already supported |
+**Key principle: "Install the tool" and "set up the project" are separate steps.** Every distribution channel ends with "now run `/kickoff`." One consistent onboarding path.
+
+| Channel | Command | What it does | Then what? | When to Build |
+|---------|---------|-------------|------------|---------------|
+| **npm CLI** (primary) | `npx praxis-kit` | Copies skills + `_memory-protocol.md` to `.claude/skills/` | Run `/kickoff` | Milestone 5 |
+| **npm CLI update** | `npx praxis-kit --update` | Replaces SKILL.md + protocol files only (preserves `.kit/` and CLAUDE.md) | Nothing — done | Milestone 5 |
+| **Vercel Skills** (discovery) | `npx skills add github/praxis-kit` | Copies SKILL.md files to `.claude/skills/` | Run `/kickoff` | Milestone 5 |
+| **Claude Code Plugin** (depth) | `/plugin install praxis-kit@marketplace` | Installs skills + hooks, with auto-updates | Run `/kickoff` | Future |
+| **Manual copy** (fallback) | `git clone` + `cp` | Copies skills to `.claude/skills/` | Run `/kickoff` | Already supported |
 
 ---
 
 ## MVP Scope
 
-**MVP delivers:** A working Claude Code skill kit where a developer can `/kickoff` a project, `/explore` decisions, `/plan_docs` an implementation, `/gen_test` test cases, and `/implement` code — all with automatic memory management that saves useful knowledge and loads relevant context per task.
+**MVP delivers:** A working Claude Code skill kit where a developer can `/kickoff` a project, `/explore` decisions, `/plan-docs` an implementation, `/gen-test` test cases, and `/implement` code — all with automatic memory management that saves useful knowledge and loads relevant context per task. Skills handle nonlinear usage gracefully (e.g., `/implement` without `/plan-docs` offers to create a plan first).
 
 **MVP does NOT include:**
 - `/memory` command (users can read `.kit/` files directly for v1)
@@ -78,7 +82,9 @@
 - Multi-agent support
 - Memory metrics/analytics
 
-**MVP installation:** `npx praxis-kit` — one command that installs skills, creates `.kit/`, and writes CLAUDE.md conventions. Manual copy remains as fallback.
+**MVP installation:** `npx praxis-kit` installs skills to `.claude/skills/`, then user runs `/kickoff` to initialize the project. Two steps, clear separation: *install the tool* vs. *set up the project*. Manual copy remains as fallback.
+
+**MVP naming convention:** Kebab-case for all skill directories: `kickoff`, `profile`, `explore`, `plan-docs`, `gen-test`, `implement`. Commands become `/kickoff`, `/profile`, `/explore`, `/plan-docs`, `/gen-test`, `/implement`.
 
 ---
 
@@ -88,36 +94,31 @@
 |-------|-----------|---------------|
 | **Skills** | Claude Code Skills (`.claude/skills/*/SKILL.md`) | Native Claude Code integration. No external dependencies. Unified with slash commands since v2.1.3. |
 | **Memory storage** | Markdown files in `.kit/` directory | Human-readable, git-trackable, portable to other agents. Proven pattern (Anthropic, Manus, LangChain all use file-based memory). |
-| **Memory protocol** | Shared `_memory-protocol.md` referenced by all skills | Prevents instruction duplication across 6 SKILL.md files. Single source of truth for curation rules. |
+| **Memory protocol** | Shared `_memory-protocol.md` in `.claude/skills/`, referenced by all skills | Prevents instruction duplication across 6 SKILL.md files. Lives alongside skills (instruction file, not memory data). Single source of truth for curation rules. |
 | **Memory retrieval** | `index.md` as structured pointer map + directory scan fallback | Lightweight (agent reads index in seconds). Self-healing (can rebuild from file system). Inspired by Manus's todo.md recitation pattern. |
 | **User profile** | `# About Me` section in CLAUDE.md | Leverages Claude Code's native loading (CLAUDE.md is read every session). No separate profile system. |
 | **Memory curation** | ADD/UPDATE/DELETE/NOOP framework (adapted from Mem0) | Research-proven: 26% accuracy boost, 90% token savings. Applied via LLM instructions in markdown, not programmatic vector DB. |
 | **Memory templates** | Strict markdown templates with required sections per file type | Mitigates "curation quality varies wildly" risk by constraining free-form writing. Agent fills sections rather than inventing structure. |
-| **Distribution** | npm package with CLI setup script (`npx praxis-kit`) + Vercel Skills (`npx skills add`) | npm handles complete setup (skills + `.kit/` + CLAUDE.md). Vercel Skills handles discovery across 37+ agents. Same SKILL.md files serve both channels. |
+| **Distribution** | npm package with CLI setup script (`npx praxis-kit`) + Vercel Skills (`npx skills add`) | CLI installs skills only (no `.kit/`, no CLAUDE.md — that's `/kickoff`'s job). Vercel Skills handles discovery across 37+ agents. Same SKILL.md files serve both channels. `--update` flag for safe upgrades. |
 
-### Repo Structure (multi-channel distribution)
+### Repo Structure (single source, multi-channel)
+
+`skills/` is the **single source of truth**. The CLI copies from here during install. No duplication.
 
 ```
 praxis-kit/                           # GitHub repo
 ├── package.json                      # npm package config (bin → cli.js)
 ├── bin/
 │   └── cli.js                        # npx praxis-kit setup script
-├── skills/                           # Vercel Skills format (for npx skills add)
+├── skills/                           # Single source of truth for all channels
+│   ├── _memory-protocol.md           # Shared memory management instructions
 │   ├── kickoff/SKILL.md
 │   ├── profile/SKILL.md
 │   ├── explore/SKILL.md
 │   ├── plan-docs/SKILL.md
 │   ├── gen-test/SKILL.md
 │   └── implement/SKILL.md
-├── .claude/skills/                   # Claude Code native format (for manual copy)
-│   ├── _memory-protocol.md
-│   ├── kickoff/SKILL.md              # Symlinks or copies of skills/ versions
-│   ├── profile/SKILL.md
-│   ├── explore/SKILL.md
-│   ├── plan_docs/SKILL.md
-│   ├── gen_test/SKILL.md
-│   └── implement/SKILL.md
-├── templates/                        # .kit/ templates (copied during setup)
+├── templates/                        # .kit/ templates (copied by /kickoff)
 │   ├── index.md
 │   ├── decision.md
 │   ├── context.md
@@ -128,26 +129,26 @@ praxis-kit/                           # GitHub repo
 └── LICENSE
 ```
 
+**How each channel uses this:**
+- **`npx praxis-kit`** → CLI copies `skills/*` to `.claude/skills/` in user's project
+- **`npx skills add`** → Vercel CLI reads `skills/` directly (standard Vercel format)
+- **Manual copy** → User copies `skills/` to `.claude/skills/` themselves
+- **All channels** → User then runs `/kickoff` to create `.kit/` with templates
+
 ### Kit File Structure (what gets installed into the user's project)
 
 ```
 project-root/
 ├── .claude/
-│   └── skills/
-│       ├── profile/
-│       │   └── SKILL.md              # /profile command definition
-│       ├── kickoff/
-│       │   └── SKILL.md              # /kickoff command definition
-│       ├── explore/
-│       │   └── SKILL.md              # /explore command definition
-│       ├── plan_docs/
-│       │   └── SKILL.md              # /plan_docs command definition
-│       ├── gen_test/
-│       │   └── SKILL.md              # /gen_test command definition
-│       └── implement/
-│           └── SKILL.md              # /implement command definition
-├── .kit/                              # Created by /kickoff
-│   ├── _memory-protocol.md           # Shared memory management instructions
+│   └── skills/                        # ← Installed by npx praxis-kit (committed to git)
+│       ├── _memory-protocol.md        # Shared memory management instructions
+│       ├── kickoff/SKILL.md           # /kickoff — project initialization
+│       ├── profile/SKILL.md           # /profile — user identity
+│       ├── explore/SKILL.md           # /explore — research & clarify
+│       ├── plan-docs/SKILL.md         # /plan-docs — implementation plans
+│       ├── gen-test/SKILL.md          # /gen-test — TDD test cases
+│       └── implement/SKILL.md         # /implement — code + tests
+├── .kit/                              # ← Created by /kickoff (gitignored by default)
 │   ├── _templates/                    # Templates for memory files
 │   │   ├── decision.md
 │   │   ├── context.md
@@ -155,17 +156,33 @@ project-root/
 │   │   ├── lessons.md
 │   │   └── status.md
 │   ├── index.md                       # Memory index (rebuildable cache)
-│   ├── project-memory/
+│   ├── project-memory/                # ← Optionally committed for team knowledge
 │   │   ├── architecture.md
 │   │   ├── requirements.md
 │   │   └── decisions/
-│   ├── task-memory/
-│   ├── agent-memory/
+│   ├── task-memory/                   # Per-task working context (ephemeral)
+│   ├── agent-memory/                  # Agent learnings (developer-local)
 │   │   ├── lessons.md
 │   │   └── patterns.md
-│   └── archive/
+│   └── archive/                       # Completed task memories
+├── .gitignore                         # /kickoff adds: .kit/ (with optional project-memory/ exception)
 └── CLAUDE.md                          # Updated by /kickoff and /profile
 ```
+
+### Git Behavior
+
+**`.kit/` is gitignored by default.** Agent memories, task context, and the index are ephemeral to the developer+agent pair — committing them would confuse team members.
+
+**Exception: `project-memory/` can optionally be committed** for shared team knowledge (architecture decisions, requirements). `/kickoff` creates a `.gitignore` entry like:
+
+```gitignore
+# Praxis-kit memory (developer-local)
+.kit/*
+# Uncomment to share project decisions with your team:
+# !.kit/project-memory/
+```
+
+**`.claude/skills/` should be committed** — these are the tool itself, version-controlled with the project.
 
 ### How Memory Works
 
@@ -240,8 +257,9 @@ User runs a skill (e.g., /explore how should we handle auth?)
 | **Archive completed tasks** | Agent (auto) | When `/implement` finishes — moves to `archive/`, updates index |
 | **Rebuild index.md** | Agent (auto) | When `index.md` is missing or stale — scans `.kit/` directories |
 | **Correct wrong memories** | Human (manual) | Only if agent saved something incorrect — edit `.kit/` files directly |
-| **Run skills** | Human (manual) | User decides when to `/explore`, `/plan_docs`, etc. |
-| **Initial setup** | Human (one-time) | Run `/kickoff` once to create `.kit/` structure |
+| **Run skills** | Human (manual) | User decides when to `/explore`, `/plan-docs`, etc. Skills handle any order gracefully. |
+| **Install skills** | Human (one-time) | `npx praxis-kit` copies skills to `.claude/skills/` |
+| **Initialize project** | Human (one-time) | Run `/kickoff` once to create `.kit/` structure + update CLAUDE.md |
 
 #### Why This Works (research-backed)
 
@@ -264,34 +282,49 @@ User runs a skill (e.g., /explore how should we handle auth?)
 
 5. **Decision files use timestamp-based naming.** `2026-02-23-database-choice.md` instead of `001-database-choice.md`. Avoids numbering conflicts in concurrent usage.
 
+6. **"Install the tool" and "set up the project" are separate steps.** `npx praxis-kit` (or Vercel Skills, or manual copy) only installs skill files to `.claude/skills/`. `/kickoff` handles all project-specific initialization (`.kit/`, CLAUDE.md, `.gitignore`). This means every distribution channel converges on the same `/kickoff` onboarding experience. No overlap, no confusion.
+
+7. **Kebab-case everywhere.** All skill directories use kebab-case: `plan-docs`, `gen-test`. This is the Vercel Skills standard and works in Claude Code. Consistent naming across all distribution channels. Commands: `/kickoff`, `/profile`, `/explore`, `/plan-docs`, `/gen-test`, `/implement`.
+
+8. **`.kit/` is gitignored by default.** Agent memories are developer-local, not project artifacts. `project-memory/` (architecture, decisions) can optionally be committed for team knowledge sharing. Skills (`.claude/skills/`) are committed.
+
+9. **Skills degrade gracefully.** Every skill checks for prerequisites and guides the user if something is missing (no `.kit/`? → run `/kickoff`. No plan? → offer to create one). The workflow is recommended, not enforced.
+
 ---
 
 ## Milestones
 
 ### Milestone 1: Foundation — Memory Protocol + `/kickoff` + `/profile`
 
-**Deliverable:** A working memory protocol and two skills that initialize the kit for any project. After this milestone, a developer can `/kickoff` a project and `/profile` themselves, and the `.kit/` directory with all templates is ready.
+**Deliverable:** A working memory protocol and two skills that initialize the kit for any project. After this milestone, a developer can install skills (manually for now), `/kickoff` a project, and `/profile` themselves. The `.kit/` directory with all templates is ready.
 
 Tasks:
-- [ ] **Design the memory protocol** — Write `_memory-protocol.md` with:
+- [ ] **Design the memory protocol** — Write `skills/_memory-protocol.md` with:
   - ADD/UPDATE/DELETE/NOOP decision framework with 3-4 concrete exemplars each
   - In-body metadata format (`**Status:** active | **Updated:** 2026-02-23`)
   - Per-file-type curation rules (decisions: rarely delete, update when changed; context: prune dead-ends; lessons: consolidate over time)
   - index.md update procedure (mandatory final step + rebuild-from-scan fallback)
   - Explicit "SAVE this / PRUNE this" examples for curated knowledge quality
-- [ ] **Create memory file templates** — Write `_templates/decision.md`, `context.md`, `plan.md`, `lessons.md`, `status.md` with required sections
+- [ ] **Create memory file templates** — Write `templates/decision.md`, `context.md`, `plan.md`, `lessons.md`, `status.md` with required sections (these get copied to `.kit/_templates/` by `/kickoff`)
 - [ ] **Design index.md format** — Structured, scannable map with sections: Active Tasks, Project Knowledge, Recent Decisions, Agent Lessons
-- [ ] **Build `/kickoff` SKILL.md** — Instructions to:
-  - Check if CLAUDE.md exists; if not, guide user to create one
-  - Append spec-driven workflow conventions to CLAUDE.md (keep it under 30 lines of kit content)
+- [ ] **Build `/kickoff` SKILL.md** — The single entry point for project setup. Instructions to:
+  - Check if `.kit/` already exists — if yes, verify/repair rather than overwrite (idempotent)
   - Create `.kit/` directory structure with all subdirectories
-  - Copy memory protocol and templates into `.kit/`
+  - Copy templates from the repo's `templates/` (or bundled in skill) into `.kit/_templates/`
   - Initialize empty `index.md`, `architecture.md`, `requirements.md`, `lessons.md`
+  - Check if CLAUDE.md exists; if not, guide user to create one
+  - Append spec-driven workflow conventions to CLAUDE.md (keep it under 30 lines of kit content, check if section already exists to avoid duplicates)
+  - Add `.kit/` to `.gitignore` (with commented-out `!.kit/project-memory/` exception)
 - [ ] **Build `/profile` SKILL.md** — Instructions to:
   - Ask user about skill level, preferred languages/frameworks, working style, communication preferences
-  - Write or update `# About Me` section in CLAUDE.md
+  - Write or update `# About Me` section in CLAUDE.md (check if it exists first — idempotent)
   - Keep profile section under 15 lines
-- [ ] **Test manually** — Run `/kickoff` + `/profile` on 2 different project types (web app, CLI tool). Verify `.kit/` structure, CLAUDE.md output, index.md format.
+- [ ] **Test manually** — Run `/kickoff` + `/profile` on 2 different project types (web app, CLI tool). Verify:
+  - `.kit/` structure is correct
+  - CLAUDE.md output is clean (no duplicates on re-run)
+  - `.gitignore` entry is added
+  - index.md format is correct
+  - Re-running `/kickoff` doesn't destroy existing data
 
 ---
 
@@ -303,6 +336,7 @@ Tasks:
 
 Tasks:
 - [ ] **Build `/explore` SKILL.md** — Instructions to:
+  - **Prerequisite check:** If `.kit/` doesn't exist, tell user to run `/kickoff` first
   - Read `index.md` to understand current project state (or rebuild if missing)
   - Load relevant `project-memory/` and `task-memory/` based on user's exploration topic
   - Conduct exploration (web search, codebase analysis, technical research, business clarification — whatever the user asks)
@@ -322,14 +356,15 @@ Tasks:
 
 ---
 
-### Milestone 3: Plan Phase — `/plan_docs` with Memory Integration
+### Milestone 3: Plan Phase — `/plan-docs` with Memory Integration
 
-**Deliverable:** A working `/plan_docs` skill that generates implementation-ready plans from exploration findings, reading from and writing to `.kit/`.
+**Deliverable:** A working `/plan-docs` skill that generates implementation-ready plans from exploration findings, reading from and writing to `.kit/`.
 
 **Depends on:** Milestone 2
 
 Tasks:
-- [ ] **Build `/plan_docs` SKILL.md** — Instructions to:
+- [ ] **Build `/plan-docs` SKILL.md** — Instructions to:
+  - **Prerequisite check:** If `.kit/` doesn't exist → guide to `/kickoff`. If no exploration context exists for this task → offer to proceed without it or run `/explore` first
   - Read `index.md` to find relevant exploration context
   - Load `task-memory/<task>/context.md` and `project-memory/` for full background
   - Generate two artifacts:
@@ -338,28 +373,31 @@ Tasks:
   - Save to `task-memory/<task>/plan.md` using template
   - Prune draft plans (keep only final version)
   - UPDATE `index.md`
-- [ ] **Test plan quality** — Run `/explore` → `/plan_docs` on a real feature. Evaluate:
+- [ ] **Test plan quality** — Run `/explore` → `/plan-docs` on a real feature. Evaluate:
   - Is the plan actually implementation-ready? (specific enough to code from)
   - Does it reference exploration findings correctly?
   - Is it concise (no unrelated content)?
-- [ ] **Test memory chain** — Verify `/plan_docs` correctly reads what `/explore` saved. Full pipeline: `/kickoff` → `/explore` → `/plan_docs` works end-to-end.
+- [ ] **Test memory chain** — Verify `/plan-docs` correctly reads what `/explore` saved. Full pipeline: `/kickoff` → `/explore` → `/plan-docs` works end-to-end.
+- [ ] **Test graceful degradation** — Run `/plan-docs` without running `/explore` first. Verify it offers to proceed without context or suggests running `/explore`.
 
 ---
 
-### Milestone 4: Code Phase — `/gen_test` + `/implement`
+### Milestone 4: Code Phase — `/gen-test` + `/implement`
 
-**Deliverable:** Working `/gen_test` and `/implement` skills that complete the Explore → Plan → Code loop with TDD and auto-managed task execution.
+**Deliverable:** Working `/gen-test` and `/implement` skills that complete the Explore → Plan → Code loop with TDD and auto-managed task execution.
 
 **Depends on:** Milestone 3
 
 Tasks:
-- [ ] **Build `/gen_test` SKILL.md** — Instructions to:
+- [ ] **Build `/gen-test` SKILL.md** — Instructions to:
+  - **Prerequisite check:** If no plan exists → offer to create one with `/plan-docs` or proceed with user-provided instructions
   - Read `task-memory/<task>/plan.md` for implementation details
   - Generate test cases following TDD (test-first approach)
   - Write tests to the appropriate location in the codebase (not in `.kit/`)
   - Focus on: unit tests for core logic, integration tests for critical paths
   - No memory write (tests live in codebase, not memory)
 - [ ] **Build `/implement` SKILL.md** — Instructions to:
+  - **Prerequisite check:** If no plan exists → offer to create one with `/plan-docs` or proceed with user instructions. If no `.kit/` → guide to `/kickoff`.
   - Read `task-memory/<task>/plan.md` for implementation steps
   - Read `agent-memory/lessons.md` and `agent-memory/patterns.md` for past learnings
   - Auto-create a todo list (using Claude Code's task system) from the plan
@@ -370,7 +408,7 @@ Tasks:
     - UPDATE `task-memory/<task>/status.md` to mark complete
     - Move completed task memory to `archive/<task>/`
     - UPDATE `index.md`
-- [ ] **Test TDD flow** — Run full pipeline: `/explore` → `/plan_docs` → `/gen_test` → `/implement`. Verify:
+- [ ] **Test TDD flow** — Run full pipeline: `/explore` → `/plan-docs` → `/gen-test` → `/implement`. Verify:
   - Tests are generated before implementation
   - Implementation follows the plan
   - Todo list executes in correct order
@@ -387,18 +425,23 @@ Tasks:
 
 Tasks:
 - [ ] **Build the npm CLI setup script** (`bin/cli.js`) — The `npx praxis-kit` entry point that:
-  - Detects which agents are installed (start with Claude Code)
-  - Copies SKILL.md files to `.claude/skills/`
-  - Copies `_memory-protocol.md` to `.claude/skills/`
-  - Creates `.kit/` directory structure with templates
-  - Appends SDD workflow conventions to CLAUDE.md (if not already present)
-  - Prints getting-started message directing user to `/profile`
-  - Supports flags: `--skip-kit` (skills only, no `.kit/`), `--skip-claude-md` (don't touch CLAUDE.md)
+  - Copies SKILL.md files + `_memory-protocol.md` from `skills/` to `.claude/skills/` in the current project
+  - Adds version comment to each installed file (`<!-- praxis-kit v1.0.0 -->`) for upgrade detection
+  - Prints getting-started message: "Now run `/kickoff` to initialize your project"
+  - **Does NOT** create `.kit/`, modify CLAUDE.md, or touch `.gitignore` (that's `/kickoff`'s job)
+  - Supports `--update` flag: replaces SKILL.md + protocol files only (preserves `.kit/` and CLAUDE.md)
+  - Supports `--help` flag
+  - v1 scope: Claude Code only (skip multi-agent detection — add in v1.1)
 - [ ] **Set up package.json** — npm package config with:
   - `name: "praxis-kit"`, `bin: { "praxis-kit": "./bin/cli.js" }`
   - Zero runtime dependencies (Node.js `fs` + `path` only)
   - `files` array to include only `bin/`, `skills/`, `templates/`
 - [ ] **Structure repo for Vercel Skills** — Ensure `skills/` directory follows the Vercel Skills format so `npx skills add github/praxis-kit` works out of the box
+- [ ] **Test distribution channels**:
+  - Fresh `npx praxis-kit` on empty project → then `/kickoff` → verify everything works
+  - Fresh `npx skills add` on empty project → then `/kickoff` → verify everything works
+  - `npx praxis-kit --update` on existing project → verify `.kit/` and CLAUDE.md untouched
+  - Install on project that already has CLAUDE.md with custom content → verify no corruption
 - [ ] **Dogfood on 3 project types**:
   - Web application (e.g., Next.js + database)
   - CLI tool (e.g., Node.js/Python command-line utility)
@@ -431,6 +474,9 @@ Tasks:
 | **Prompt brittleness across projects** | Medium | Dogfood across 3 project types before release. Iterate on prompts based on failures. |
 | **npm package name squatting** | Low | Register `praxis-kit` on npm early (even as placeholder `0.0.1`). Check for name conflicts before committing. |
 | **Vercel Skills ecosystem changes** | Low | Keep skills format simple (just SKILL.md with frontmatter). Also support manual copy as fallback. Don't depend on any single distribution channel. |
+| **Stale skills after updates** | Medium | Version comment in installed SKILL.md files. `--update` flag replaces only skill files. Document upgrade process in README. Claude Code Plugin channel (future) adds auto-updates. |
+| **Users skip workflow steps** | Medium | Every skill checks prerequisites and guides gracefully (no plan? → offer to create one). Workflow is recommended, not enforced. |
+| **CLAUDE.md write conflicts** | Medium | All writes are idempotent: read current content, check if section exists, update in place or append. `/kickoff` and `/profile` both follow this pattern. |
 
 ---
 
@@ -439,9 +485,11 @@ Tasks:
 - [x] **What should the kit be called?** → **Praxis-kit** (*praxis* = practical application of theory → specs become code)
 - [x] **Global vs. project-local skill installation?** → **Project-local by default** (`npx praxis-kit` installs to `.claude/skills/` in the current project). This keeps skills version-controlled with the project. Users who want global can manually copy to `~/.claude/skills/`.
 - [x] **How to distribute the kit?** → **Multi-channel**: `npx praxis-kit` (primary, complete setup), Vercel Skills (discovery), Claude Code Plugin (future, when hooks are added). See Distribution Strategy section.
+- [x] **Should `npx praxis-kit` replace `/kickoff`?** → **No.** CLI installs skills only. `/kickoff` handles all project-specific initialization (`.kit/`, CLAUDE.md, `.gitignore`). Clear separation: "install the tool" vs. "set up the project." Every distribution channel converges on `/kickoff`.
+- [x] **Skill naming convention?** → **Kebab-case everywhere.** `plan-docs`, `gen-test`. Consistent across Vercel Skills, Claude Code, and CLI. Commands: `/plan-docs`, `/gen-test`.
+- [x] **Should `.kit/` be committed to git?** → **Gitignored by default.** Agent memories are developer-local. `project-memory/` can optionally be committed for team knowledge. `.claude/skills/` should be committed.
 - [ ] **How to handle `/explore` for non-task-specific research?** Not all exploration maps to a specific task (e.g., "what database should I use for this project?"). Should this go to `project-memory/` directly instead of `task-memory/`?
 - [ ] **Should `/kickoff` run `/profile` automatically if no `# About Me` exists?** Could reduce onboarding to a single command. Or keep them separate for clarity.
-- [ ] **Should `npx praxis-kit` replace `/kickoff`?** The npm setup script could handle everything `/kickoff` does (create `.kit/`, write CLAUDE.md). `/kickoff` would then become a "re-initialize" command for existing projects. Or keep both: `npx praxis-kit` for first install, `/kickoff` for re-init or when installed via Vercel Skills (which can't run setup scripts).
 - [ ] **License choice?** MIT (maximum adoption) vs. Apache 2.0 (patent protection) vs. something else.
 
 ---
@@ -450,14 +498,14 @@ Tasks:
 
 Start here — these are the concrete actions to begin building immediately:
 
-1. **Create the repo with multi-channel structure.** Initialize `praxis-kit` on GitHub with:
-   - `skills/` directory (Vercel Skills format) with SKILL.md files for all 6 commands
-   - `.claude/skills/` directory (Claude Code native format, copies of skills/)
+1. **Create the repo with single-source structure.** Initialize `praxis-kit` on GitHub with:
+   - `skills/` directory (single source of truth) with kebab-case SKILL.md dirs for all 6 commands
    - `templates/` directory for `.kit/` memory file templates
    - `bin/cli.js` placeholder for the `npx praxis-kit` setup script
    - `package.json` with `name: "praxis-kit"` and `bin` entry
+   - Register `praxis-kit` on npm early (placeholder `0.0.1`)
 
-2. **Write `_memory-protocol.md` first.** This is the foundation. Include:
+2. **Write `skills/_memory-protocol.md` first.** This is the foundation. Include:
    - ADD/UPDATE/DELETE/NOOP framework with exemplars
    - In-body metadata format
    - index.md update/rebuild procedure
@@ -466,11 +514,11 @@ Start here — these are the concrete actions to begin building immediately:
 
 3. **Write memory file templates.** Create `templates/decision.md`, `context.md`, `plan.md`, `lessons.md`, `status.md`. Each should have required sections that constrain the agent's writing.
 
-4. **Build `/kickoff` and `/profile`.** These are the simplest skills and create the foundation for everything else. Test on a real project.
+4. **Build `/kickoff` and `/profile`.** `/kickoff` is the most important skill — it's the universal onboarding path. Make it idempotent (safe to re-run). Test that it creates `.kit/`, updates CLAUDE.md without duplicates, and adds `.gitignore` entry.
 
 5. **Build `/explore` and test the full memory cycle.** This is the first real test of whether the memory protocol works. Run it 5+ times, evaluate curation quality, iterate.
 
-6. **Build `npx praxis-kit` CLI.** Once skills are stable, write `bin/cli.js` to automate the full install. Test it on a fresh project — `npx praxis-kit` should go from zero to ready in one command. Publish to npm.
+6. **Build `npx praxis-kit` CLI.** Once skills are stable, write `bin/cli.js` — a simple ~100-line script that copies skills to `.claude/skills/` and tells the user to run `/kickoff`. Test on a fresh project. Publish to npm.
 
 ---
 
