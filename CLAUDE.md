@@ -49,9 +49,9 @@ When a phase command is run (e.g., `/clarify`, `/research`):
 - **Save incrementally.** Write output files after each phase completes.
 - **Support iteration.** Users can re-run any phase or loop back between phases 2–4.
 
-## Sub-Agent Roles
+## Skills
 
-When executing phases, adopt the appropriate persona:
+When executing phases, use the appropriate skill:
 
 | Phase     | Persona      | Approach                                    |
 |-----------|-------------|---------------------------------------------|
